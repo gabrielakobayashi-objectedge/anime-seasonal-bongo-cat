@@ -121,4 +121,39 @@ export class NavigationPage {
     await mkdir(dirname(outputPath), { recursive: true });
     await this.page.screenshot({ path: outputPath, type: 'png' });
   }
+
+  async screenshotAllTopAnime(outputDir: string): Promise<string[]> {
+    await this.dismissCookieConsent();
+
+    const links = await this.page.$$eval(
+      NavigationPage.ANIME_CARD_SELECTOR,
+      (cards, scoreSel) =>
+        cards
+          .map((card) => ({
+            href: (card.querySelector('h2.h2_anime_title a') as any)?.href ?? '',
+            score: parseFloat(card.querySelector(scoreSel)?.textContent?.trim() ?? ''),
+          }))
+          .filter(({ href, score }) => href && !isNaN(score) && score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5)
+          .map(({ href }) => href),
+      NavigationPage.SCORE_SELECTOR
+    );
+
+    if (links.length === 0) throw new Error('No rated anime found for screenshots');
+
+    await mkdir(outputDir, { recursive: true });
+    const paths: string[] = [];
+
+    for (let i = 0; i < links.length; i++) {
+      await this.page.goto(links[i]);
+      await this.page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+      await this.dismissCookieConsent();
+      const screenshotPath = `${outputDir}/anime-${i + 1}-screenshot.png`;
+      await this.page.screenshot({ path: screenshotPath, type: 'png' });
+      paths.push(screenshotPath);
+    }
+
+    return paths;
+  }
 }

@@ -13,16 +13,32 @@ import { NavigationPage } from '../pages/NavigationPage';
 import { generateMockReview } from '../utils/mockReview';
 import { writeAnimeResults, type AnimeResult } from '../utils/outputWriter';
 
-const SCREENSHOT_PATH = 'output/top-anime-screenshot.png';
+const SCREENSHOT_DIR = 'output';
+const SCREENSHOT_PATHS = [1, 2, 3, 4, 5].map((i) => `${SCREENSHOT_DIR}/anime-${i}-screenshot.png`);
 const JSON_PATH = 'output/anime-results.json';
 
 test.describe('Screenshot & JSON Output (Story 2.3)', () => {
-  test('screenshots #1 anime card to output/top-anime-screenshot.png', async ({ page }) => {
+  test('screenshots top 5 anime to output/anime-{1-5}-screenshot.png', async ({ page }) => {
     const nav = new NavigationPage(page);
     await nav.goToCurrentSeason();
-    await nav.screenshotTopAnime(SCREENSHOT_PATH);
+    const paths = await nav.screenshotAllTopAnime(SCREENSHOT_DIR);
 
-    expect(existsSync(SCREENSHOT_PATH)).toBe(true);
+    expect(paths.length).toBeGreaterThanOrEqual(1);
+    expect(paths.length).toBeLessThanOrEqual(5);
+
+    for (const p of paths) {
+      expect(existsSync(p), `Missing screenshot: ${p}`).toBe(true);
+    }
+  });
+
+  test('all 5 screenshots exist after run', async ({ page }) => {
+    const nav = new NavigationPage(page);
+    await nav.goToCurrentSeason();
+    await nav.screenshotAllTopAnime(SCREENSHOT_DIR);
+
+    for (const p of SCREENSHOT_PATHS) {
+      expect(existsSync(p), `Missing screenshot: ${p}`).toBe(true);
+    }
   });
 
   test('writes anime-results.json with correct structure per entry', async ({ page }) => {
@@ -72,22 +88,23 @@ test.describe('Screenshot & JSON Output (Story 2.3)', () => {
     }
   });
 
-  test('screenshot has 1920x1080 resolution', async ({ page }) => {
+  test('each screenshot has 1920x1080 resolution', async ({ page }) => {
     const nav = new NavigationPage(page);
     await nav.goToCurrentSeason();
-    await nav.screenshotTopAnime(SCREENSHOT_PATH);
+    const paths = await nav.screenshotAllTopAnime(SCREENSHOT_DIR);
 
-    const buffer = await readFile(SCREENSHOT_PATH);
-    const { width, height } = readPngDimensions(buffer);
-
-    expect(width).toBe(1920);
-    expect(height).toBe(1080);
+    for (const p of paths) {
+      const buffer = await readFile(p);
+      const { width, height } = readPngDimensions(buffer);
+      expect(width, `Width mismatch: ${p}`).toBe(1920);
+      expect(height, `Height mismatch: ${p}`).toBe(1080);
+    }
   });
 
-  test('cookie modal not visible after screenshot', async ({ page }) => {
+  test('cookie modal not visible after screenshots', async ({ page }) => {
     const nav = new NavigationPage(page);
     await nav.goToCurrentSeason();
-    await nav.screenshotTopAnime(SCREENSHOT_PATH);
+    await nav.screenshotAllTopAnime(SCREENSHOT_DIR);
 
     const cookieSelectors = [
       '#cookie-consent',
