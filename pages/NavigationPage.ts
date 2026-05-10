@@ -64,8 +64,32 @@ export class NavigationPage {
       .slice(0, 5);
   }
 
+  async dismissCookieConsent(): Promise<void> {
+    const cookieSelectors = [
+      '#cookie-consent button[class*="agree"]',
+      '#cookie-consent .btn-accept',
+      '.cookie-banner button[class*="agree"]',
+      'button[class*="cookie"][class*="agree"]',
+      '#qc-cmp2-ui button.css-k8o10q',
+      '.qc-cmp2-summary-buttons button:last-child',
+      '[id*="cookie"] button[class*="accept"]',
+      '[id*="consent"] button[class*="agree"]',
+    ];
+
+    for (const selector of cookieSelectors) {
+      const btn = this.page.locator(selector).first();
+      if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await btn.click();
+        await this.page.waitForTimeout(500);
+        return;
+      }
+    }
+  }
+
   async screenshotTopAnime(outputPath: string): Promise<void> {
     const scoreSel = NavigationPage.SCORE_SELECTOR;
+
+    await this.dismissCookieConsent();
 
     const bestIndex = await this.page.$$eval(
       NavigationPage.ANIME_CARD_SELECTOR,
@@ -86,8 +110,15 @@ export class NavigationPage {
 
     if (bestIndex === -1) throw new Error('No rated anime card found for screenshot');
 
-    await mkdir(dirname(outputPath), { recursive: true });
     const cards = await this.page.$$(NavigationPage.ANIME_CARD_SELECTOR);
-    await cards[bestIndex].screenshot({ path: outputPath });
+    const titleLink = await cards[bestIndex].$('h2.h2_anime_title a');
+    if (!titleLink) throw new Error('No title link found on top-rated anime card');
+
+    await titleLink.click();
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    await this.dismissCookieConsent();
+
+    await mkdir(dirname(outputPath), { recursive: true });
+    await this.page.screenshot({ path: outputPath, type: 'png' });
   }
 }

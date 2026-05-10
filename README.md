@@ -9,7 +9,8 @@ Playwright-based scraper that navigates to MyAnimeList's current seasonal anime 
 - Scrapes all anime entries, filters out unrated (N/A) entries, returns top 5 sorted by score descending
 - Generates mock user reviews via `@faker-js/faker` (reviewer name, rating 1–10, comment)
 - Writes `output/anime-results.json` with `title`, `score`, and `mock_user_review` per entry
-- Screenshots the #1 anime card to `output/top-anime-screenshot.png`
+- Screenshots the #1 anime card to `output/top-anime-screenshot.png` at 1920×1080 viewport resolution
+- Dismisses GDPR/cookie consent modal before capturing screenshot
 - Full Page Object Model (POM) architecture
 
 ## Requirements
@@ -62,7 +63,7 @@ Runs all 21 tests. The full pipeline test (`anime-scraper.spec.ts`) produces two
 │   ├── anime-results.json
 │   └── top-anime-screenshot.png
 │
-├── playwright.config.ts      # Playwright config — Chromium only, headless, 1 worker
+├── playwright.config.ts      # Playwright config — Chromium only, headless, 1 worker, 1920×1080 viewport
 ├── tsconfig.json
 └── package.json
 ```
@@ -79,7 +80,9 @@ Test Spec (anime-scraper.spec.ts)
   NavigationPage ──────────────────────────────────────────────┐
   │  goToCurrentSeason()    → derives season from date, navigates MAL  │
   │  getTopRatedAnime()     → scrapes, filters N/A, sorts desc, top 5  │
-  │  screenshotTopAnime()   → screenshots highest-scored card element  │
+  │  dismissCookieConsent() → clicks agree on cookie modal if present   │
+  │  screenshotTopAnime()   → dismisses cookie modal, scrolls #1 card  │
+  │                           into view, captures full 1920×1080 page  │
         │
         ▼
    utils/mockReview.ts
@@ -115,10 +118,10 @@ Test Spec (anime-scraper.spec.ts)
 | `anime-scraper.spec.ts` | 1 | Full end-to-end pipeline |
 | `navigation.spec.ts` | 4 | Season detection, URL construction, page load |
 | `scraper.spec.ts` | 4 | Filtering, sorting, top-5 limit |
-| `output.spec.ts` | 4 | Screenshot file, JSON structure, auto dir creation |
+| `output.spec.ts` | 6 | Screenshot file, 1920×1080 resolution, cookie modal dismissed, JSON structure, auto dir creation |
 | `page-manager.spec.ts` | 3 | POM registry, instance identity |
 | `mock-review.spec.ts` | 5 | Field types, rating range, non-determinism |
-| **Total** | **21** | |
+| **Total** | **23** | |
 
 ## Dependencies
 

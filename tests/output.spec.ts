@@ -1,6 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { existsSync } from 'fs';
 import { readFile, rm } from 'fs/promises';
+
+function readPngDimensions(buffer: Buffer): { width: number; height: number } {
+  // PNG spec: bytes 16-19 = width, 20-23 = height (big-endian)
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
 import { NavigationPage } from '../pages/NavigationPage';
 import { generateMockReview } from '../utils/mockReview';
 import { writeAnimeResults, type AnimeResult } from '../utils/outputWriter';
@@ -61,6 +69,38 @@ test.describe('Screenshot & JSON Output (Story 2.3)', () => {
     const content: AnimeResult[] = JSON.parse(await readFile(JSON_PATH, 'utf-8'));
     for (const entry of content) {
       expect(typeof entry.mock_user_review).toBe('object');
+    }
+  });
+
+  test('screenshot has 1920x1080 resolution', async ({ page }) => {
+    const nav = new NavigationPage(page);
+    await nav.goToCurrentSeason();
+    await nav.screenshotTopAnime(SCREENSHOT_PATH);
+
+    const buffer = await readFile(SCREENSHOT_PATH);
+    const { width, height } = readPngDimensions(buffer);
+
+    expect(width).toBe(1920);
+    expect(height).toBe(1080);
+  });
+
+  test('cookie modal not visible after screenshot', async ({ page }) => {
+    const nav = new NavigationPage(page);
+    await nav.goToCurrentSeason();
+    await nav.screenshotTopAnime(SCREENSHOT_PATH);
+
+    const cookieSelectors = [
+      '#cookie-consent',
+      '.cookie-banner',
+      '#qc-cmp2-ui',
+      '[id*="cookie"]',
+      '[id*="consent"]',
+    ];
+
+    for (const selector of cookieSelectors) {
+      const el = page.locator(selector).first();
+      const visible = await el.isVisible().catch(() => false);
+      expect(visible, `Cookie modal still visible: ${selector}`).toBe(false);
     }
   });
 
